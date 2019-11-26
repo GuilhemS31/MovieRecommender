@@ -8,6 +8,8 @@ import java.util.LinkedList;
 import java.util.List;
 
 public class MongodbDatabase extends AbstractDatabase {
+	
+	//TODO : init connection avec constructeur
 
     @Override
     public List<Movie> getAllMovies() {

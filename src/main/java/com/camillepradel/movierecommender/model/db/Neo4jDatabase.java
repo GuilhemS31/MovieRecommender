@@ -3,12 +3,39 @@ package com.camillepradel.movierecommender.model.db;
 import com.camillepradel.movierecommender.model.Genre;
 import com.camillepradel.movierecommender.model.Movie;
 import com.camillepradel.movierecommender.model.Rating;
+
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 
 public class Neo4jDatabase extends AbstractDatabase {
+	
+	Connection connection = null;
 
+    // db connection info
+    String url = "jdbc:neo4j:bolt://localhost:7687";
+    String login = "admin";
+    String password = "admin";
+	
+    public Neo4jDatabase() {
+        // load JDBC driver
+        try {
+            Class.forName("org.neo4j.jdbc.bolt.BoltDriver");
+            
+        } catch (ClassNotFoundException e) {
+			e.printStackTrace();
+		}
+
+        try {
+            connection = DriverManager.getConnection(url, login, password);
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+    
     @Override
     public List<Movie> getAllMovies() {
         // TODO: write query to retrieve all movies from DB
@@ -77,4 +104,6 @@ public class Neo4jDatabase extends AbstractDatabase {
         recommendations.add(new Rating(new Movie(3, titlePrefix + "Titre 3", Arrays.asList(new Genre[]{genre0, genre1, genre2})), userId, 3));
         return recommendations;
     }
+    
+
 }
