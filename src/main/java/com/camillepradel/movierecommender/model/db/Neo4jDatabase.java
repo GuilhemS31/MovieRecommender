@@ -4,50 +4,71 @@ import com.camillepradel.movierecommender.model.Genre;
 import com.camillepradel.movierecommender.model.Movie;
 import com.camillepradel.movierecommender.model.Rating;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 
+import org.neo4j.driver.v1.AuthTokens;
+import org.neo4j.driver.v1.Driver;
+import org.neo4j.driver.v1.GraphDatabase;
+import org.neo4j.driver.v1.Record;
+import org.neo4j.driver.v1.Session;
+import org.neo4j.driver.v1.StatementResult;
+
 public class Neo4jDatabase extends AbstractDatabase {
 	
-	Connection connection = null;
+	Driver driver = null;
 
     // db connection info
-    String url = "jdbc:neo4j:bolt://localhost:7687";
+    String url = "bolt://localhost:7687";
     String login = "admin";
     String password = "admin";
 	
     public Neo4jDatabase() {
         // load JDBC driver
         try {
-            Class.forName("org.neo4j.jdbc.bolt.BoltDriver");
-            
+            Class.forName("org.neo4j.jdbc.bolt.BoltDriver");            
         } catch (ClassNotFoundException e) {
 			e.printStackTrace();
 		}
 
-        try {
-            connection = DriverManager.getConnection(url, login, password);
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
+
+        driver = GraphDatabase.driver(url, AuthTokens.basic(login, password));
     }
     
     @Override
     public List<Movie> getAllMovies() {
-        // TODO: write query to retrieve all movies from DB
-        List<Movie> movies = new LinkedList<Movie>();
-        Genre genre0 = new Genre(0, "genre0");
-        Genre genre1 = new Genre(1, "genre1");
-        Genre genre2 = new Genre(2, "genre2");
-        movies.add(new Movie(0, "Titre 0", Arrays.asList(new Genre[]{genre0, genre1})));
-        movies.add(new Movie(1, "Titre 1", Arrays.asList(new Genre[]{genre0, genre2})));
-        movies.add(new Movie(2, "Titre 2", Arrays.asList(new Genre[]{genre1})));
-        movies.add(new Movie(3, "Titre 3", Arrays.asList(new Genre[]{genre0, genre1, genre2})));
-        return movies;
+    	System.out.println("getAllMovies");
+    	
+    	List<Movie> movies = new LinkedList<Movie>();
+        
+        Session session = driver.session();
+        
+        StatementResult result = session.run( "MATCH (m:Movie)-[r]->(g:Genre) WHERE type(r) = 'CATEGORIZED_AS' RETURN m.id,m.title, collect(g.name) as g_name ORDER BY m.id" );
+        
+        
+        while ( result.hasNext() )
+        {
+            Record record = result.next();
+            int id = record.get("m.id").asInt();
+            String titre = record.get("m.title").asString();
+            
+            List<Object> listGenre = record.get("g_name").asList();
+            List<Genre> listGenreMieu = new ArrayList<Genre>();
+            for(int i=0; i < listGenre.size(); i++) {
+                StatementResult resultBis = session.run("Match (g:Genre {name:\""+ listGenre.get(i).toString() + "\"}) return g.id");
+                Record recordGenre = resultBis.single();
+                int genreId = recordGenre.get("g.id").asInt();
+            	listGenreMieu.add(new Genre(genreId, listGenre.get(i).toString()));
+            }
+            
+            movies.add(new Movie(id, titre, listGenreMieu));
+        }
+
+        session.close();
+        
+         return movies;
     }
 
     @Override
