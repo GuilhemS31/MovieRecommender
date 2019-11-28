@@ -25,8 +25,4 @@ public class Movie {
     public List<Genre> getGenres() {
         return this.genres;
     }
-    
-    public void addGenre(Genre newGenre) {
-    	this.genres.add(newGenre);
-    }
 }

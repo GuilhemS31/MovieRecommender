@@ -53,36 +53,8 @@ db.dropDatabase()
 	
 	
 	@Override
-	public List<Movie> getAllMovies() {
-
-		DB database = mongoClient.getDB("MoviesProj");
-		DBCollection collectionMovies = database.getCollection("movies");
-		DBCollection collectionGenres = database.getCollection("genres");
-		DBCollection collectionMovGenre = database.getCollection("mov_genre");
-
-		List<Movie> allMovies = collecToMovies(collectionMovies);
-		List<Genre> allGenres = collecToGenre(collectionGenres);
-		
-		final Iterator<DBObject> cursor = collectionMovGenre.find();
-		while (cursor.hasNext()) {
-			final DBObject currentMovGen = cursor.next();
-			for(Movie currentMovie : allMovies) {
-				if(currentMovie.getId() == Integer.parseInt(currentMovGen.get("mov_id").toString())) {
-					for(Genre currentGenre : allGenres) {
-						if(currentGenre.getId() == Integer.parseInt(currentMovGen.get("genre").toString())){
-							currentMovie.addGenre(currentGenre);
-						}
-					}
-				}
-			}
-		}
-
-		// TODO: write query to retrieve all movies from DB
-		
-//		List<Movie> movies = new LinkedList<Movie>();
-//		Genre genre0 = new Genre(0, "genre0");
-//		movies.add(new Movie(0, "Titre 0", Arrays.asList(new Genre[] { genre0, genre1 })));
-		return allMovies;
+	public List<Movie> getAllMovies() {		
+		return moviesFromDB();
 	}
 
 	@Override
@@ -143,32 +115,94 @@ db.dropDatabase()
     
 
 
-    private List<Movie> collecToMovies(DBCollection collectionMovies) {
+    private List<Movie> moviesFromDB() {
     	List<Movie> result = new ArrayList<Movie>();
-    	
+
+
+		DB database = mongoClient.getDB("MoviesProj");
+		DBCollection collectionMovies = database.getCollection("movies");
+		DBCollection collectionMovGenre = database.getCollection("mov_genre");
+		
+    	List<Genre> allGenres = genresFromDB();
+		
 		final Iterator<DBObject> cursor = collectionMovies.find();
 		while (cursor.hasNext()) {
+			//current Movie from movies Collection
 			final DBObject currentMovie = cursor.next();
-
+			
+			//get basic attribute
 			final int movieID = Integer.parseInt(currentMovie.get("id").toString());
 			final String movieTitle = currentMovie.get("title").toString();
 			//final String movieDate = currentMovie.get("date").toString();
+			final List<Genre> movieGenres = new ArrayList<Genre>();
 			
-			result.add(new Movie(movieID, movieTitle, null));
+			//get list of genre from mov_genre and genre Collection
+			final Iterator<DBObject> cursor2 = collectionMovGenre.find();
+			while (cursor2.hasNext()) {
+				final DBObject currentMovGen = cursor2.next();
+					if(movieID == Integer.parseInt(currentMovGen.get("mov_id").toString())) {
+						for(Genre currentGenre : allGenres) {
+							if(currentGenre.getId() == Integer.parseInt(currentMovGen.get("genre").toString())){
+								movieGenres.add(currentGenre);
+							}
+						}
+					}
+			}
+
+			//TODO Test
+			result.add(new Movie(movieID, movieTitle, movieGenres));
 		}
 		
 		return result;
 	}
 
-    private List<Genre> collecToGenre(DBCollection collectionGenre) {
+    private List<Genre> genresFromDB() {
     	List<Genre> result = new ArrayList<Genre>();
-    	//TODO
+
+    	DB database = mongoClient.getDB("MoviesProj");
+		DBCollection collectionGenres = database.getCollection("genres");
+		
+		final Iterator<DBObject> cursor = collectionGenres.find();
+		while (cursor.hasNext()) {
+			//current Genre from genre Collection
+			final DBObject currentMovie = cursor.next();
+
+			final int genreID = Integer.parseInt(currentMovie.get("id").toString());
+			final String genreName = currentMovie.get("name").toString();
+			
+			result.add(new Genre(genreID,genreName));
+		}
+			
 		return result;
     }
     
-    private List<Rating> collecToRating(DBCollection collectionRating) {
+    private List<Rating> ratingsFromDB(DBCollection collectionRating) {
     	List<Rating> result = new ArrayList<Rating>();
-    	//TODO
+
+    	DB database = mongoClient.getDB("MoviesProj");
+		DBCollection collectionGenres = database.getCollection("ratings");
+
+    	List<Movie> allMovies = moviesFromDB();
+    	
+		final Iterator<DBObject> cursor = collectionGenres.find();
+		while (cursor.hasNext()) {
+			//current Genre from genre Collection
+			final DBObject currentRating = cursor.next();
+
+			final int userID = Integer.parseInt(currentRating.get("user_id").toString());
+			final int movieID = Integer.parseInt(currentRating.get("mov_id").toString());
+			final int score = Integer.parseInt(currentRating.get("rating").toString());
+			//final int timestamp = Integer.parseInt(currentMovie.get("timestamp").toString());
+			Movie movie = null;
+			
+			for(Movie currentMovie : allMovies) {
+				if(currentMovie.getId() == userID) {
+					movie = currentMovie;
+				}
+			}
+			result.add(new Rating(movie,userID,score));
+		}
+		
 		return result;
     }
     
