@@ -21,15 +21,15 @@ public class MongodbDatabase extends AbstractDatabase {
 	/** 
 	* Init MongoDB 
 
-"C:\Program Files\MongoDB\Server\4.2\bin\mongoimport.exe" --db MoviesProj --collection friends --file friends.csv --type=csv -fields=user1_id,user2_id
-"C:\Program Files\MongoDB\Server\4.2\bin\mongoimport.exe" --db MoviesProj --collection genres --file genres.csv --type=csv -fields=name,id
-"C:\Program Files\MongoDB\Server\4.2\bin\mongoimport.exe" --db MoviesProj --collection mov_genre --file mov_genre.csv --type=csv -fields=mov_id,genre
-"C:\Program Files\MongoDB\Server\4.2\bin\mongoimport.exe" --db MoviesProj --collection movies --file movies.csv --type=csv -fields=id,title,date
-"C:\Program Files\MongoDB\Server\4.2\bin\mongoimport.exe" --db MoviesProj --collection ratings --file ratings.csv --type=csv -fields=user_id,mov_id,rating,timestamp 
-"C:\Program Files\MongoDB\Server\4.2\bin\mongoimport.exe" --db MoviesProj --collection users --file users.csv --type=csv -fields=id,age,sex,occupation,zip_code 
+{PathTo : mongoimport.exe} --db MoviesProj --collection friends --file friends.csv --type=csv -fields=user1_id,user2_id
+{PathTo : mongoimport.exe} --db MoviesProj --collection genres --file genres.csv --type=csv -fields=name,id
+{PathTo : mongoimport.exe} --db MoviesProj --collection mov_genre --file mov_genre.csv --type=csv -fields=mov_id,genre
+{PathTo : mongoimport.exe} --db MoviesProj --collection movies --file movies.csv --type=csv -fields=id,title,date
+{PathTo : mongoimport.exe} --db MoviesProj --collection ratings --file ratings.csv --type=csv -fields=user_id,mov_id,rating,timestamp 
+{PathTo : mongoimport.exe} --db MoviesProj --collection users --file users.csv --type=csv -fields=id,age,sex,occupation,zip_code 
 
 	* Launch
-"C:\Program Files\MongoDB\Server\4.2\bin\mongo.exe" MoviesProj
+{PathTo : mongo.exe} MoviesProj
 	
 	* Delete for reset
 db.dropDatabase()
@@ -53,30 +53,36 @@ db.dropDatabase()
 	
 	
 	@Override
-	public List<Movie> getAllMovies() {		
+	public List<Movie> getAllMovies() {	
+        // TODO: test	
 		return moviesFromDB();
 	}
 
 	@Override
     public List<Movie> getMoviesRatedByUser(int userId) {
-        // TODO: write query to retrieve all movies rated by user with id userId
+        // TODO: test
         List<Movie> movies = new LinkedList<Movie>();
-        Genre genre0 = new Genre(0, "genre0");
-        Genre genre1 = new Genre(1, "genre1");
-        Genre genre2 = new Genre(2, "genre2");
-        movies.add(new Movie(0, "Titre 0", Arrays.asList(new Genre[]{genre0, genre1})));
-        movies.add(new Movie(3, "Titre 3", Arrays.asList(new Genre[]{genre0, genre1, genre2})));
+        List<Rating> ratings = ratingsFromDB();
+
+        for(Rating currentRating : ratings) {
+        	if(currentRating.getUserId() == userId) {
+        		movies.add(currentRating.getMovie());
+        	}
+        }
         return movies;
     }
 
     @Override
     public List<Rating> getRatingsFromUser(int userId) {
-        // TODO: write query to retrieve all ratings from user with id userId
-        List<Rating> ratings = new LinkedList<Rating>();
-        Genre genre0 = new Genre(0, "genre0");
-        Genre genre1 = new Genre(1, "genre1");
-        ratings.add(new Rating(new Movie(0, "Titre 0", Arrays.asList(new Genre[]{genre0, genre1})), userId, 3));
-        ratings.add(new Rating(new Movie(2, "Titre 2", Arrays.asList(new Genre[]{genre1})), userId, 4));
+        // TODO: test
+        List<Rating> ratings = ratingsFromDB();
+        List<Rating> allratings = ratingsFromDB();
+
+        for(Rating currentRating : allratings) {
+        	if(currentRating.getUserId() == userId) {
+        		ratings.add(currentRating);
+        	}
+        }
         return ratings;
     }
 
@@ -85,6 +91,23 @@ db.dropDatabase()
         // TODO: add query which
         //         - add rating between specified user and movie if it doesn't exist
         //         - update it if it does exist
+
+        List<Rating> allratings = ratingsFromDB();
+        boolean finded = false;
+        
+        for(Rating currentRating : allratings) {
+        	if(currentRating.getUserId() == rating.getUserId() 
+        			&& currentRating.getMovieId() == rating.getMovieId()) {
+        		//Rating finded, update it
+        		//TODO mongo UPDATE
+        		finded = true;
+        	}
+        }
+
+		//Rating not finded, create it
+        if(!finded) {
+        	
+        }
     }
 
     @Override
@@ -148,8 +171,6 @@ db.dropDatabase()
 						}
 					}
 			}
-
-			//TODO Test
 			result.add(new Movie(movieID, movieTitle, movieGenres));
 		}
 		
@@ -176,7 +197,7 @@ db.dropDatabase()
 		return result;
     }
     
-    private List<Rating> ratingsFromDB(DBCollection collectionRating) {
+    private List<Rating> ratingsFromDB() {
     	List<Rating> result = new ArrayList<Rating>();
 
     	DB database = mongoClient.getDB("MoviesProj");
