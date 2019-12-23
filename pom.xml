@@ -75,14 +75,19 @@
 		    <artifactId>bson</artifactId>
 		    <version>3.11.2</version>
 		</dependency>
-		 -->
-		 
+		
 		<dependency>
 			<groupId>org.mongodb</groupId>
 			<artifactId>mongodb-driver-sync</artifactId>
 			<version>3.11.2</version>
 		</dependency>
-
+		 -->
+		 
+		<dependency>
+		    <groupId>org.mongodb</groupId>
+		    <artifactId>mongo-java-driver</artifactId>
+		    <version>2.11.1</version>
+		</dependency>
 	</dependencies>
 
 	<build>
