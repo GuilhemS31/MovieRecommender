@@ -57,8 +57,6 @@ db.dropDatabase()
 		//Get DB collections
 		DB db = mongoClient.getDB("MoviesProj");
 		DBCollection collectionMovies = db.getCollection("movies");
-		DBCollection collectionMovieGenres = db.getCollection("mov_genre");
-		DBCollection collectionGenres = db.getCollection("genres");
 
 		//Iterate on all movies
 		/**
@@ -67,44 +65,8 @@ db.dropDatabase()
 		 */
 		Iterator<DBObject> cursorMovies = collectionMovies.find().iterator();
 		while (cursorMovies.hasNext()) {
-
-			try {
-				final DBObject currentMovie = cursorMovies.next();
-
-				List<Genre> currentMovieGenres = new ArrayList<Genre>();
-
-				//Create a filter : mov_genre.mov_id = movies.ields=id
-				BasicDBObject movieGenreFilter = new BasicDBObject();
-				movieGenreFilter.put("ields=mov_id", Integer.parseInt(currentMovie.get("ields=id").toString()));
-
-				//Iterate on result = on genres associated at this movie
-				Iterator<DBObject> cursorMovieGenre = collectionMovieGenres.find(movieGenreFilter).iterator();
-				while (cursorMovieGenre.hasNext()) {
-					final DBObject currentMovieGenreAssociation = cursorMovieGenre.next();
-
-					//Create a filter : mov_genre.genre = genre.id
-					BasicDBObject genreFilter = new BasicDBObject();
-					genreFilter.put("id", Integer.parseInt(currentMovieGenreAssociation.get("genre").toString()));
-
-					DBObject currentGenre = collectionGenres.findOne(genreFilter);
-					//Get a genre and add it to the GenreList
-					currentMovieGenres.add(
-							new Genre(Integer.parseInt(currentGenre.get("id").toString()), currentGenre.get("ields=name").toString()));
-				}
-
-				//Finaly create a Movie object with his attributes and his filled list of genre
-				movies.add(new Movie(Integer.parseInt(currentMovie.get("ields=id").toString()),
-						currentMovie.get("title").toString(), currentMovieGenres));
-
-			}catch(NumberFormatException e) {
-				//case of 1rst line of csv with colum name 
-				System.out.println("Error while parsing int value, please look if current data is correct (some a wrong) : \n");
-				e.printStackTrace();
-			}catch(NullPointerException ee) {
-				//case identified of something is null, don't know what
-				System.out.println("Error while data, please have a look if current value is correct (some are null) : \n");
-				ee.printStackTrace();
-			}
+			final DBObject currentMovie = cursorMovies.next();
+			movies.add(createMovie(db,currentMovie));
 		}
 		return movies;
 	}
@@ -117,55 +79,19 @@ db.dropDatabase()
 		DB db = mongoClient.getDB("MoviesProj");
 		DBCollection collectionRatings = db.getCollection("ratings");
 		DBCollection collectionMovies = db.getCollection("movies");
-		DBCollection collectionMovieGenres = db.getCollection("mov_genre");
-		DBCollection collectionGenres = db.getCollection("genres");
 
 		//Create a filter : ratings.ields=user_id = userId
 		BasicDBObject userRatingsFilter = new BasicDBObject();
 		userRatingsFilter.put("ields=user_id", userId);
 		Iterator<DBObject> cursorRatings = collectionRatings.find(userRatingsFilter).iterator();
 		while (cursorRatings.hasNext()) {
-			try {
-				final DBObject currentRating = cursorRatings.next();
-				//Create a filter : ratings.mov_id = movies.ields=id
-				BasicDBObject ratingMoviesFilter = new BasicDBObject();
-				ratingMoviesFilter.put("ields=id", Integer.parseInt(currentRating.get("mov_id").toString()));
-				DBObject currentMovie = collectionMovies.findOne(ratingMoviesFilter);
+			final DBObject currentRating = cursorRatings.next();
+			//Create a filter : ratings.mov_id = movies.ields=id
+			BasicDBObject ratingMoviesFilter = new BasicDBObject();
+			ratingMoviesFilter.put("ields=id", Integer.parseInt(currentRating.get("mov_id").toString()));
+			DBObject currentMovie = collectionMovies.findOne(ratingMoviesFilter);
+			movies.add(createMovie(db,currentMovie));
 
-				List<Genre> currentMovieGenres = new ArrayList<Genre>();
-
-				//Create a filter : mov_genre.mov_id = movies.ields=id
-				BasicDBObject movieGenreFilter = new BasicDBObject();
-				movieGenreFilter.put("ields=mov_id", Integer.parseInt(currentMovie.get("ields=id").toString()));
-
-				//Iterate on result = on genres associated at this movie
-				Iterator<DBObject> cursorMovieGenre = collectionMovieGenres.find(movieGenreFilter).iterator();
-				while (cursorMovieGenre.hasNext()) {
-					final DBObject currentMovieGenreAssociation = cursorMovieGenre.next();
-
-					//Create a filter : mov_genre.genre = genre.id
-					BasicDBObject genreFilter = new BasicDBObject();
-					genreFilter.put("id", Integer.parseInt(currentMovieGenreAssociation.get("genre").toString()));
-
-					DBObject currentGenre = collectionGenres.findOne(genreFilter);
-					//Get a genre and add it to the GenreList
-					currentMovieGenres.add(
-							new Genre(Integer.parseInt(currentGenre.get("id").toString()), currentGenre.get("ields=name").toString()));
-				}
-
-				//Finaly create a Movie object with his attributes and his filled list of genre
-				movies.add(new Movie(Integer.parseInt(currentMovie.get("ields=id").toString()),
-						currentMovie.get("title").toString(), currentMovieGenres));
-
-			}catch(NumberFormatException e) {
-				//case of 1rst line of csv with colum name 
-				System.out.println("Error while parsing int value, please look if current data is correct (some a wrong) : \n");
-				e.printStackTrace();
-			}catch(NullPointerException ee) {
-				//case identified of something is null, don't know what
-				System.out.println("Error while data, please have a look if current value is correct (some are null) : \n");
-				ee.printStackTrace();
-			}
 		}
 
 		return movies;
@@ -176,36 +102,25 @@ db.dropDatabase()
 		// TODO
 		List<Rating> ratings = new LinkedList<Rating>();
 
-		//		MongoDatabase database = mongoClient.getDatabase("MovieProj");
-		//		MongoCollection<Document> collectionRatings = database.getCollection("ratings");
-		//		MongoCollection<Document> collectionMovies = database.getCollection("movies");
-		//		MongoCollection<Document> collectionMovieGenres = database.getCollection("mov_genre");
-		//		MongoCollection<Document> collectionGenres = database.getCollection("genres");
-		//
-		//		//find ratings for given user
-		//		for (Document currentRating : collectionRatings.find(new Document("user_id", userId))) {
-		//			//get movies from ratings selected
-		//			//then same code than getAllMovies() but with filtered movies
-		//			for (Document currentMovie : collectionMovies.find(
-		//					new Document("id", currentRating.get("mov_id")))) {
-		//				List<Genre> currentMovieGenres = new ArrayList<Genre>();
-		//				
-		//				for (Document associatedGenresToThisMovie : collectionMovieGenres
-		//						.find(new Document("mov_id", currentMovie.get("id").toString()))) {
-		//					for (Document currentGenre : collectionGenres
-		//							.find(new Document("id", associatedGenresToThisMovie.get("genre")))) {
-		//						currentMovieGenres.add(
-		//								new Genre(Integer.parseInt(currentGenre.get("id").toString()), currentGenre.get("name").toString()));
-		//					}
-		//				}
-		//				//create a rating object by creating a Movie
-		//				ratings.add(new Rating(new Movie(Integer.parseInt(currentMovie.get("id").toString()),
-		//						currentMovie.get("title").toString(), currentMovieGenres),
-		//						userId, 
-		//						Integer.parseInt(currentRating.get("rating").toString())));
-		//			}
-		//		}
-		//		
+		//Get DB collections
+		DB db = mongoClient.getDB("MoviesProj");
+
+		DBCollection collectionRatings = db.getCollection("ratings");
+		DBCollection collectionMovies = db.getCollection("movies");
+
+		//Create a filter : ratings.ields=user_id = userId
+		BasicDBObject userRatingsFilter = new BasicDBObject();
+		userRatingsFilter.put("ields=user_id", userId);
+		Iterator<DBObject> cursorRatings = collectionRatings.find(userRatingsFilter).iterator();
+		while (cursorRatings.hasNext()) {
+			final DBObject currentRating = cursorRatings.next();
+			//Create a filter : ratings.mov_id = movies.ields=id
+			BasicDBObject ratingMoviesFilter = new BasicDBObject();
+			ratingMoviesFilter.put("ields=id", Integer.parseInt(currentRating.get("mov_id").toString()));
+			DBObject currentMovie = collectionMovies.findOne(ratingMoviesFilter);
+			ratings.add(new Rating(createMovie(db,currentMovie), userId, Integer.parseInt(currentRating.get("rating").toString())));
+
+		}
 		return ratings;
 	}
 
@@ -249,5 +164,48 @@ db.dropDatabase()
 				new Rating(new Movie(3, titlePrefix + "Titre 3", Arrays.asList(new Genre[] { genre0, genre1, genre2 })),
 						userId, 3));
 		return recommendations;
+	}
+
+	private Movie createMovie(DB db,DBObject currentMovie) {
+
+		try {
+
+			DBCollection collectionMovieGenres = db.getCollection("mov_genre");
+			DBCollection collectionGenres = db.getCollection("genres");
+
+			List<Genre> currentMovieGenres = new ArrayList<Genre>();
+
+			//Create a filter : mov_genre.mov_id = movies.ields=id
+			BasicDBObject movieGenreFilter = new BasicDBObject();
+			movieGenreFilter.put("ields=mov_id", Integer.parseInt(currentMovie.get("ields=id").toString()));
+
+			//Iterate on result = on genres associated at this movie
+			Iterator<DBObject> cursorMovieGenre = collectionMovieGenres.find(movieGenreFilter).iterator();
+			while (cursorMovieGenre.hasNext()) {
+				final DBObject currentMovieGenreAssociation = cursorMovieGenre.next();
+
+				//Create a filter : mov_genre.genre = genre.id
+				BasicDBObject genreFilter = new BasicDBObject();
+				genreFilter.put("id", Integer.parseInt(currentMovieGenreAssociation.get("genre").toString()));
+
+				DBObject currentGenre = collectionGenres.findOne(genreFilter);
+				//Get a genre and add it to the GenreList
+				currentMovieGenres.add(
+						new Genre(Integer.parseInt(currentGenre.get("id").toString()), currentGenre.get("ields=name").toString()));
+			}
+
+			//Finaly create a Movie object with his attributes and his filled list of genre
+			return new Movie(Integer.parseInt(currentMovie.get("ields=id").toString()),
+					currentMovie.get("title").toString(), currentMovieGenres);
+		}catch(NumberFormatException e) {
+			//case of 1rst line of csv with colum name 
+			System.out.println("Error while parsing int value, please look if current data is correct (some a wrong) : \n");
+			e.printStackTrace();
+		}catch(NullPointerException ee) {
+			//case identified of something is null, don't know what
+			System.out.println("Error while data, please have a look if current value is correct (some are null) : \n");
+			ee.printStackTrace();
+		}
+		return null;
 	}
 }
