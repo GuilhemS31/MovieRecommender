@@ -166,22 +166,40 @@ db.dropDatabase()
 
 	@Override
 	public List<Rating> processRecommendationsForUser(int userId, int processingMode) {
-		
+
+		List<Rating> ratingsFromUser = getRatingsFromUser(userId);
 
 		List<Rating> recommendations = new LinkedList<Rating>();
 
-		//TODO 0 and 1 : get user movies here and remove common ratings
+
 		if (processingMode == 0) {
 			//Variante 1 : l’utilisateur le plus proche
-			recommendations = getRatingsFromUser(findUserProches(userId,1).get(0));
+			List<Rating> recommendationsFromUserProche = getRatingsFromUser(findUserProches(userId,1).get(0));
+			for(Rating currentRecommandation : recommendationsFromUserProche) {
+				if(!ratingsFromUser.contains(currentRecommandation)) {
+					//Don't work really good
+					recommendations.add(currentRecommandation);
+				}
+			}
 		} else if (processingMode == 1) {
 			//Variante 2: les cinq utilisateurs les plus proches
 			for(int i : findUserProches(userId,5)){
-				recommendations.addAll(getRatingsFromUser(i));
+				for(Rating currentRecommandation : getRatingsFromUser(i)) {
+					if(!ratingsFromUser.contains(currentRecommandation)) {
+						//Don't work really good
+						recommendations.add(currentRecommandation);
+					}
+				}
 			}
 		} else if (processingMode == 2) {
 			// TODO
 			//Variante 3: prise en compte de la valeur des scores
+			List<Rating> recommendationsFromUserProche = getRatingsFromUser(findUserProchesParNotes(userId,1).get(0));
+			for(Rating currentRecommandation : recommendationsFromUserProche) {
+				if(!ratingsFromUser.contains(currentRecommandation)) {
+					recommendations.add(currentRecommandation);
+				}
+			}
 		}
 		return recommendations;
 	}
@@ -232,12 +250,20 @@ db.dropDatabase()
 	private List<Integer> findUserProches(int userId,int nbr) {
 		List<Integer> usersProchesIDs = new ArrayList<Integer>();
 
+//		//Get all movies rated by user
+//		List<Movie> moviesRatedByUser = getMoviesRatedByUser(userId);
+//		//and their IDs
+//		List<Integer> moviesIdRatedByUser = new ArrayList<Integer>(); 
+//		for(Movie currentMovie : moviesRatedByUser){
+//			moviesIdRatedByUser.add(currentMovie.getId());
+//		}
 		//Get all movies rated by user
-		List<Movie> moviesRatedByUser = getMoviesRatedByUser(userId);
+		List<Rating> ratingsByUser = getRatingsFromUser(userId);
+
 		//and their IDs
 		List<Integer> moviesIdRatedByUser = new ArrayList<Integer>(); 
-		for(Movie currentMovie : moviesRatedByUser){
-			moviesIdRatedByUser.add(currentMovie.getId());
+		for(Rating currentRating : ratingsByUser){
+			moviesIdRatedByUser.add(currentRating.getMovieId());
 		}
 
 		//Init calculs storage
@@ -272,6 +298,8 @@ db.dropDatabase()
 			}
 		}
 
+
+		//Get nbr entry(ies) with max score
 		int i = 0;
 		do {
 			i++;
@@ -288,6 +316,85 @@ db.dropDatabase()
 		}while(i < nbr);
 
 		System.out.println(usersProchesIDs);
+		return usersProchesIDs;
+	}
+
+
+	private List<Integer> findUserProchesParNotes(int userId,int nbr) {
+		List<Integer> usersProchesIDs = new ArrayList<Integer>();
+
+		//Get all movies rated by user
+		List<Rating> ratingsByUser = getRatingsFromUser(userId);
+		
+		//and their IDs
+		List<Integer> moviesIdRatedByUser = new ArrayList<Integer>(); 
+		for(Rating currentRating : ratingsByUser){
+			moviesIdRatedByUser.add(currentRating.getMovieId());
+		}
+		
+		//Init calculs storage
+		Map<Integer,Integer> user_score_Map = new HashMap<Integer,Integer>();
+
+		//Get DB collections
+		DB db = mongoClient.getDB("MoviesProj");
+
+		DBCollection collectionRatings = db.getCollection("ratings");
+
+		//parcourir rating
+		//score + x si même movie noté et même note x
+		//score - x si note différente avec x diff
+		
+		//parse ratings and count tuple (user , common movies)
+		Iterator<DBObject> cursorRatings = collectionRatings.find().iterator();
+		while (cursorRatings.hasNext()) {
+			try {
+				final DBObject currentRating = cursorRatings.next();
+				
+				for(Rating currentUserRating : ratingsByUser) {
+					if(moviesIdRatedByUser.contains(Integer.parseInt(currentRating.get("mov_id").toString()))) {
+						//if currentRating is  about a movie rated by userId
+						int currentUser = Integer.parseInt(currentRating.get("user_id").toString());
+						if(currentUser != userId && user_score_Map.keySet().contains(currentUser)) {
+							//if currentUser has already a common movie with userId
+							int currentUserMovieRate = currentUserRating.getScore();
+							int currentRatingMovieRate = Integer.parseInt(currentRating.get("rating").toString());
+							int score = 4 - (currentUserMovieRate-currentRatingMovieRate);
+							int newValue = user_score_Map.get(currentUser) + score;
+							user_score_Map.put(currentUser, newValue);
+						}
+						else {
+							int currentUserMovieRate = currentUserRating.getScore();
+							int currentRatingMovieRate = Integer.parseInt(currentRating.get("rating").toString());
+							int score = 4 - (currentUserMovieRate-currentRatingMovieRate);
+							user_score_Map.put(currentUser, score);
+						}
+					}
+				}
+			}catch(NumberFormatException e) {
+				//case of 1rst line of csv with colum name 
+				System.out.println("Error while parsing int value, please look if current data is correct (some a wrong) : \n");
+				e.printStackTrace();
+			}catch(NullPointerException ee) {
+				//case identified of something is null, don't know what
+				System.out.println("Error while data, please have a look if current value is correct (some are null) : \n");
+				ee.printStackTrace();
+			}
+		}
+
+
+		//Get entry with max score
+		Map.Entry<Integer,Integer> maxEntry = null;
+
+		for (Map.Entry<Integer,Integer> entry : user_score_Map.entrySet()){
+			if (maxEntry == null || entry.getValue().compareTo(maxEntry.getValue()) > 0){
+				maxEntry = entry;
+			}
+		}
+
+		usersProchesIDs.add(maxEntry.getKey());
+
+		System.out.println(usersProchesIDs);
+
 		return usersProchesIDs;
 	}
 }
