@@ -30,7 +30,7 @@ public class BenchMarkMovieRecommander {
         benchmarkResults.add("Global benchmark duration : " + time);
         
         try {
-			PrintWriter out = new PrintWriter("benchmarkLogs.txt");
+			PrintWriter out = new PrintWriter(System.nanoTime()+"_Logs.txt");
 	        
 	        for(String currentResult : benchmarkResults) {
 	        	System.out.println(currentResult);
@@ -53,6 +53,8 @@ public class BenchMarkMovieRecommander {
 
         for(int nbIter = 1; nbIter < 1001; nbIter = nbIter * 10) {
             long startIterationTime = System.nanoTime();
+            double totalTimeU1 = 0;
+            double totalTimeU63 = 0;
             
             for(int i = 0; i < nbIter; i++) {
             	benchmarkResults.add("-- BEGIN iteration " + i);
@@ -87,18 +89,26 @@ public class BenchMarkMovieRecommander {
                     long endUserTime = System.nanoTime();
                     double timeUser = (double) (endUserTime - startUserTime) / 1000000000.;
                 	benchmarkResults.add("Time to process current user : " + timeUser);
+                	if(currentUserId == 1) {
+                		totalTimeU1 += timeUser;
+                	}
+                	else {
+                		totalTimeU63 += timeUser;
+                	}
                 	benchmarkResults.add("END test on user " + currentUserId);
                 }
 
                 long endIterTime = System.nanoTime();
                 double timeIter = (double) (endIterTime - startIterTime) / 1000000000.;
-            	benchmarkResults.add("Time to process current user : " + timeIter);
+            	benchmarkResults.add("Time to process current user iteration : " + timeIter);
             	benchmarkResults.add("END iter " + i);
             }
             
             long endIterationTime = System.nanoTime();
             double timeIteration = (double) (endIterationTime - startIterationTime) / 1000000000.;
             benchmarkResults.add("Time to process " + nbIter + " requests in one thread: " + timeIteration + "s");
+            benchmarkResults.add("Average time for user 1 = " + totalTimeU1);
+            benchmarkResults.add("Average time for user 63 = " + totalTimeU63);
         }
     	benchmarkResults.add("END URL test " + urlStart +"\n");
     }
