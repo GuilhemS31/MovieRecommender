@@ -39,8 +39,6 @@ public class Neo4jDatabase extends AbstractDatabase {
     
     @Override
     public List<Movie> getAllMovies() {
-    	System.out.println("getAllMovies");
-    	
     	List<Movie> movies = new LinkedList<Movie>();
         
         Session session = driver.session();
@@ -73,32 +71,87 @@ public class Neo4jDatabase extends AbstractDatabase {
 
     @Override
     public List<Movie> getMoviesRatedByUser(int userId) {
-        // TODO: write query to retrieve all movies rated by user with id userId
         List<Movie> movies = new LinkedList<Movie>();
-        Genre genre0 = new Genre(0, "genre0");
-        Genre genre1 = new Genre(1, "genre1");
-        Genre genre2 = new Genre(2, "genre2");
-        movies.add(new Movie(0, "Titre 0", Arrays.asList(new Genre[]{genre0, genre1})));
-        movies.add(new Movie(3, "Titre 3", Arrays.asList(new Genre[]{genre0, genre1, genre2})));
+        
+        Session session = driver.session();
+        
+        StatementResult result = session.run("MATCH (u:User{id:" + userId + "})-[r:RATED]->(m:Movie)-[r2:CATEGORIZED_AS]->(g:Genre) RETURN m.id, m.title, collect(g.name) as g_name");
+        
+        while ( result.hasNext() )
+        {
+            Record record = result.next();
+            int id = record.get("m.id").asInt();
+            String titre = record.get("m.title").asString();
+            
+            List<Object> listGenre = record.get("g_name").asList();
+            List<Genre> listGenreMieu = new ArrayList<Genre>();
+            for(int i=0; i < listGenre.size(); i++) {
+                StatementResult resultBis = session.run("Match (g:Genre {name:\""+ listGenre.get(i).toString() + "\"}) return g.id");
+                Record recordGenre = resultBis.single();
+                int genreId = recordGenre.get("g.id").asInt();
+            	listGenreMieu.add(new Genre(genreId, listGenre.get(i).toString()));
+            }
+            
+            movies.add(new Movie(id, titre, listGenreMieu));
+        }
+
+        session.close();
+        
         return movies;
+        
+        
     }
 
     @Override
     public List<Rating> getRatingsFromUser(int userId) {
-        // TODO: write query to retrieve all ratings from user with id userId
         List<Rating> ratings = new LinkedList<Rating>();
-        Genre genre0 = new Genre(0, "genre0");
-        Genre genre1 = new Genre(1, "genre1");
-        ratings.add(new Rating(new Movie(0, "Titre 0", Arrays.asList(new Genre[]{genre0, genre1})), userId, 3));
-        ratings.add(new Rating(new Movie(2, "Titre 2", Arrays.asList(new Genre[]{genre1})), userId, 4));
+        
+        Session session = driver.session();
+        
+        StatementResult result = session.run("MATCH (u:User{id:"+ userId + "})-[r:RATED]->(m:Movie)-[r2:CATEGORIZED_AS]->(g:Genre) Return r.note , m.id, m.title, collect(g.name) as g_name");
+        
+        while ( result.hasNext() )
+        {
+            Record record = result.next();
+            int score = record.get("r.note").asInt();
+            int id = record.get("m.id").asInt();
+            String titre = record.get("m.title").asString();
+            
+            List<Object> listGenre = record.get("g_name").asList();
+            List<Genre> listGenreMieu = new ArrayList<Genre>();
+            for(int i=0; i < listGenre.size(); i++) {
+                StatementResult resultBis = session.run("Match (g:Genre {name:\""+ listGenre.get(i).toString() + "\"}) return g.id");
+                Record recordGenre = resultBis.single();
+                int genreId = recordGenre.get("g.id").asInt();
+            	listGenreMieu.add(new Genre(genreId, listGenre.get(i).toString()));
+            }
+            ratings.add(new Rating(new Movie(id, titre, listGenreMieu), userId, score));
+        }
+
+        session.close();
+        
         return ratings;
     }
 
     @Override
     public void addOrUpdateRating(Rating rating) {
-        // TODO: add query which
-        //         - add rating between specified user and movie if it doesn't exist
-        //         - update it if it does exist
+    	int userId = rating.getUserId();
+    	int movieId = rating.getMovieId();
+    	int note = rating.getScore();
+    	
+    	Session session = driver.session();
+    	
+    	//check if movie has already been rated by user
+        StatementResult result = session.run("MATCH (u:User{id:" + userId + "})-[r:RATED]->(m:Movie{id:" + movieId + "}) RETURN u.id, r.note, m.title");
+        if ( result.hasNext() ) {
+        	//update rating
+        	session.run("MATCH (u:User{id:" + userId + "})-[r:RATED]->(m:Movie{id:" + movieId + "}) SET r.note = " + note + " RETURN u.id, r.note, m.title");
+        }
+        else {
+        	//create rating
+        	session.run("MATCH (u:User{id:" + userId + "}), (m:Movie{id:" + movieId + "}) CREATE (u)-[r:RATED {note:" + note + ", timestamp:" + System.currentTimeMillis() + "}]->(m) RETURN u.id, r.note, m.title");
+        }
+    	
     }
 
     @Override
@@ -112,6 +165,7 @@ public class Neo4jDatabase extends AbstractDatabase {
         String titlePrefix;
         if (processingMode == 0) {
             titlePrefix = "0_";
+            recommendations = this.processRecommendationsForUsersPM1(userId);
         } else if (processingMode == 1) {
             titlePrefix = "1_";
         } else if (processingMode == 2) {
@@ -119,12 +173,76 @@ public class Neo4jDatabase extends AbstractDatabase {
         } else {
             titlePrefix = "default_";
         }
-        recommendations.add(new Rating(new Movie(0, titlePrefix + "Titre 0", Arrays.asList(new Genre[]{genre0, genre1})), userId, 5));
-        recommendations.add(new Rating(new Movie(1, titlePrefix + "Titre 1", Arrays.asList(new Genre[]{genre0, genre2})), userId, 5));
-        recommendations.add(new Rating(new Movie(2, titlePrefix + "Titre 2", Arrays.asList(new Genre[]{genre1})), userId, 4));
-        recommendations.add(new Rating(new Movie(3, titlePrefix + "Titre 3", Arrays.asList(new Genre[]{genre0, genre1, genre2})), userId, 3));
         return recommendations;
     }
     
-
+    private List<Rating> processRecommendationsForUsersPM1(int userId) {
+    	List<Rating> recommendations = new LinkedList<Rating>();
+    	
+    	Session session = driver.session();
+    	
+    	String querry = "MATCH (target_user:User {id :" + userId + "})-[:RATED]->(m:Movie) <-[:RATED]-(other_user:User) WITH other_user, count(distinct m.title) AS num_common_movies, target_user ORDER BY num_common_movies DESC LIMIT 1 MATCH (other_user)-[rat_other_user:RATED]->(m2:Movie)-[r2:CATEGORIZED_AS]->(g:Genre) WHERE NOT (target_user)-[:RATED]->(m2) RETURN m2.id, m2.title AS rec_movie_title, collect(g.name) AS g_name, rat_other_user.note AS rating, other_user.id AS watched_by ORDER BY rat_other_user.note DESC";
+        StatementResult result = session.run(querry);
+        
+        while ( result.hasNext() )
+        {
+        	Record record = result.next();
+        	int otherUserId = record.get("watched_by").asInt();
+            int score = record.get("rating").asInt();
+            int movieId = record.get("m2.id").asInt();
+        	String movieTitle = record.get("rec_movie_title").asString();
+        	
+        	List<Object> listGenre = record.get("g_name").asList();
+            List<Genre> listGenreMieu = new ArrayList<Genre>();
+            for(int i=0; i < listGenre.size(); i++) {
+                StatementResult resultBis = session.run("Match (g:Genre {name:\""+ listGenre.get(i).toString() + "\"}) return g.id");
+                Record recordGenre = resultBis.single();
+                int genreId = recordGenre.get("g.id").asInt();
+            	listGenreMieu.add(new Genre(genreId, listGenre.get(i).toString()));
+            }
+        	
+        	Movie movie = new Movie(movieId, movieTitle, listGenreMieu);
+        	Rating recommendation = new Rating(movie, otherUserId, score);
+        	recommendations.add(recommendation);
+        }
+        
+        session.close();
+    	
+    	return recommendations;
+    }
+    
+    private List<Rating> processRecommendationsForUsersPM2(int userId) {
+    	List<Rating> recommendations = new LinkedList<Rating>();
+    	
+    	Session session = driver.session();
+    
+    	String querry = "MATCH (target_user:User {id :" + userId + "})-[:RATED]->(m:Movie) <-[:RATED]-(other_user:User) WITH other_user, count(distinct m.title) AS num_common_movies, target_user ORDER BY num_common_movies DESC LIMIT 5 MATCH (other_user)-[rat_other_user:RATED]->(m2:Movie)-[r2:CATEGORIZED_AS]->(g:Genre) WHERE NOT (target_user)-[:RATED]->(m2) RETURN m2.id, m2.title AS rec_movie_title, collect(g.name) AS g_name, rat_other_user.note AS rating, other_user.id AS watched_by ORDER BY rat_other_user DESC";
+    	StatementResult result = session.run(querry);
+        
+        while ( result.hasNext() )
+        {
+        	Record record = result.next();
+        	int otherUserId = record.get("watched_by").asInt();
+            int score = record.get("rating").asInt();
+            int movieId = record.get("m2.id").asInt();
+        	String movieTitle = record.get("rec_movie_title").asString();
+        	
+        	List<Object> listGenre = record.get("g_name").asList();
+            List<Genre> listGenreMieu = new ArrayList<Genre>();
+            for(int i=0; i < listGenre.size(); i++) {
+                StatementResult resultBis = session.run("Match (g:Genre {name:\""+ listGenre.get(i).toString() + "\"}) return g.id");
+                Record recordGenre = resultBis.single();
+                int genreId = recordGenre.get("g.id").asInt();
+            	listGenreMieu.add(new Genre(genreId, listGenre.get(i).toString()));
+            }
+        	
+        	Movie movie = new Movie(movieId, movieTitle, listGenreMieu);
+        	Rating recommendation = new Rating(movie, otherUserId, score);
+        	recommendations.add(recommendation);
+        }
+        
+        session.close();
+    	
+    	return recommendations;
+    }
 }

@@ -25,7 +25,7 @@ public class MainController {
     @PostConstruct
     public void init() {
     	//this.db = new MySqlDatabase();
-        //this.db = new Neo4jDatabase();
+        this.db = new Neo4jDatabase();
         //this.db = new MongodbDatabase();
     }
     
