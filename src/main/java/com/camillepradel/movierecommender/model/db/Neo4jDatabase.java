@@ -168,6 +168,7 @@ public class Neo4jDatabase extends AbstractDatabase {
             recommendations = this.processRecommendationsForUsersPM1(userId);
         } else if (processingMode == 1) {
             titlePrefix = "1_";
+            recommendations = this.processRecommendationsForUsersPM2(userId);
         } else if (processingMode == 2) {
             titlePrefix = "2_";
         } else {
@@ -181,7 +182,7 @@ public class Neo4jDatabase extends AbstractDatabase {
     	
     	Session session = driver.session();
     	
-    	String querry = "MATCH (target_user:User {id :" + userId + "})-[:RATED]->(m:Movie) <-[:RATED]-(other_user:User) WITH other_user, count(distinct m.title) AS num_common_movies, target_user ORDER BY num_common_movies DESC LIMIT 1 MATCH (other_user)-[rat_other_user:RATED]->(m2:Movie)-[r2:CATEGORIZED_AS]->(g:Genre) WHERE NOT (target_user)-[:RATED]->(m2) RETURN m2.id, m2.title AS rec_movie_title, collect(g.name) AS g_name, rat_other_user.note AS rating, other_user.id AS watched_by ORDER BY rat_other_user.note DESC";
+    	String querry = "MATCH (target_user:User {id :" + userId + "})-[:RATED]->(m:Movie) <-[:RATED]-(other_user:User) WITH other_user, count(distinct m.title) AS num_common_movies, target_user ORDER BY num_common_movies DESC LIMIT 1 MATCH (other_user)-[rat_other_user:RATED]->(m2:Movie)-[r2:CATEGORIZED_AS]->(g:Genre) WHERE NOT (target_user)-[:RATED]->(m2) RETURN m2.id, m2.title AS rec_movie_title, collect(g.name) AS g_name, rat_other_user.note AS rating, other_user.id AS watched_by ORDER BY rating DESC";
         StatementResult result = session.run(querry);
         
         while ( result.hasNext() )
@@ -216,7 +217,7 @@ public class Neo4jDatabase extends AbstractDatabase {
     	
     	Session session = driver.session();
     
-    	String querry = "MATCH (target_user:User {id :" + userId + "})-[:RATED]->(m:Movie) <-[:RATED]-(other_user:User) WITH other_user, count(distinct m.title) AS num_common_movies, target_user ORDER BY num_common_movies DESC LIMIT 5 MATCH (other_user)-[rat_other_user:RATED]->(m2:Movie)-[r2:CATEGORIZED_AS]->(g:Genre) WHERE NOT (target_user)-[:RATED]->(m2) RETURN m2.id, m2.title AS rec_movie_title, collect(g.name) AS g_name, rat_other_user.note AS rating, other_user.id AS watched_by ORDER BY rat_other_user DESC";
+    	String querry = "MATCH (target_user:User {id :" + userId + "})-[:RATED]->(m:Movie) <-[:RATED]-(other_user:User) WITH other_user, count(distinct m.title) AS num_common_movies, target_user ORDER BY num_common_movies DESC LIMIT 5 MATCH (other_user)-[rat_other_user:RATED]->(m2:Movie)-[r2:CATEGORIZED_AS]->(g:Genre) WHERE NOT (target_user)-[:RATED]->(m2) RETURN m2.id, m2.title AS rec_movie_title, collect(g.name) AS g_name, rat_other_user.note AS rating, other_user.id AS watched_by ORDER BY rating DESC";
     	StatementResult result = session.run(querry);
         
         while ( result.hasNext() )
