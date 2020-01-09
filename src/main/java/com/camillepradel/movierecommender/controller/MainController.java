@@ -25,8 +25,13 @@ public class MainController {
     @PostConstruct
     public void init() {
     	//this.db = new MySqlDatabase();
+<<<<<<< Updated upstream
         this.db = new Neo4jDatabase();
         //this.db = new MongodbDatabase();
+=======
+        //this.db = new Neo4jDatabase();
+        this.db = new MongodbDatabase();
+>>>>>>> Stashed changes
     }
     
     @RequestMapping("/hello")
